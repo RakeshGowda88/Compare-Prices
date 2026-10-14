@@ -103,10 +103,17 @@
 </div>
 
 <div id="mSet" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="tSet">
- <div class="card w-full max-w-md p-6 space-y-5">
+ <div class="card w-full max-w-md p-6 space-y-5 max-h-[90vh] overflow-y-auto">
   <h3 id="tSet" class="text-base font-bold text-white">Settings</h3>
   <div class="flex items-center justify-between"><span class="text-sm text-gray-300">Back up your data</span><button class="btn" data-a="export">Export JSON</button></div>
   <div><label class="lbl" for="fImp">Restore from a JSON export</label><input id="fImp" type="file" accept="application/json" class="text-xs text-gray-300"></div>
+  <div class="border-t border-gray-800 pt-4 space-y-3">
+   <p class="text-sm text-gray-300">Save retailers permanently (GitHub)</p>
+   <p class="text-xs text-gray-400">Without this, retailers you add are kept in this browser only. Use a fine-grained token limited to this repository with Contents read and write access, with an expiry date. The token is stored in this browser.</p>
+   <div><label class="lbl" for="ghRepo">Repository (owner/name)</label><input id="ghRepo" class="inp" placeholder="owner/repo"></div>
+   <div><label class="lbl" for="ghTok">Token</label><input id="ghTok" type="password" autocomplete="off" class="inp"></div>
+   <button class="btn" data-a="savegh">Save and sync</button>
+  </div>
   <div class="flex items-center justify-between border-t border-gray-800 pt-4"><span class="text-sm text-gray-300">Delete everything</span><button class="btn text-red-400" data-a="reset">Reset all data</button></div>
   <div class="flex justify-end"><button class="btn btn-g" data-a="close" data-m="mSet">Done</button></div>
  </div>
@@ -248,7 +255,7 @@ function delProduct(id){
 function delRetailer(i){
  const r=state.retailers[i];
  if(!confirm(`Remove ${r.name}? Prices you recorded for it will be deleted.`))return;
- state.retailers.splice(i,1);state.products.forEach(p=>delete p.prices[r.name]);save();render();
+ state.retailers.splice(i,1);state.products.forEach(p=>delete p.prices[r.name]);render();syncRetailers();
 }
 
 function prepAdd(){
@@ -284,9 +291,49 @@ function addRetailer(e){
  if(state.retailers.some(r=>r.name.toLowerCase()===name.toLowerCase()))return toast('That retailer is already listed.');
  try{new URL('https://'+dom)}catch(_){return toast('Enter a valid website, for example myer.com.au.')}
  state.retailers.push({name,domain:dom,searchUrl:`https://${dom}/search?q=`});
- save();closeModal('mRet');render();toast('Retailer added.');
+ closeModal('mRet');render();syncRetailers();
 }
 
+const GH_KEY='aus_tracker_gh';
+const gh=()=>{try{return JSON.parse(localStorage.getItem(GH_KEY))||{}}catch(e){return{}}};
+const defRepo=()=>location.hostname.endsWith('github.io')?location.hostname.split('.')[0]+'/'+(location.pathname.split('/')[1]||''):'';
+function fillGh(){const c=gh();$('ghRepo').value=c.repo||defRepo();$('ghTok').value=c.token||''}
+async function ghPush(){
+ const c=gh(),api=`https://api.github.com/repos/${c.repo||defRepo()}/contents/retailers.json`;
+ const h={Authorization:'Bearer '+c.token,Accept:'application/vnd.github+json'};
+ let sha;const g=await fetch(api,{headers:h});
+ if(g.ok)sha=(await g.json()).sha;else if(g.status!==404)throw new Error('GitHub returned '+g.status);
+ const bytes=new TextEncoder().encode(JSON.stringify(state.retailers,null,2));
+ const r=await fetch(api,{method:'PUT',headers:h,body:JSON.stringify({message:'Update retailers',content:btoa(String.fromCharCode(...bytes)),sha})});
+ if(!r.ok)throw new Error('GitHub returned '+r.status);
+}
+async function syncRetailers(){
+ save();
+ if(!gh().token)return toast('Saved in this browser only. Add a GitHub token in Settings to save permanently.');
+ try{await ghPush();toast('Retailers saved to GitHub.')}catch(e){toast('GitHub save failed: '+e.message)}
+}
+async function pullRetailers(union){
+ const c=gh(),repo=c.repo||defRepo();if(!repo||repo.endsWith('/'))return;
+ try{
+  const h={Accept:'application/vnd.github.raw+json'};if(c.token)h.Authorization='Bearer '+c.token;
+  const r=await fetch(`https://api.github.com/repos/${repo}/contents/retailers.json`,{headers:h,cache:'no-store'});
+  if(r.status===401)return toast('GitHub token was rejected. Check it in Settings.');
+  if(!r.ok)return;
+  const a=await r.json();
+  if(!Array.isArray(a)||!a.every(x=>x&&typeof x.name==='string'&&typeof x.domain==='string'))return;
+  a.forEach(x=>{if(typeof x.searchUrl!=='string')x.searchUrl=`https://${x.domain}/search?q=`});
+  const have=new Set(a.map(x=>x.name.toLowerCase()));
+  state.retailers=(c.token&&!union)?a:a.concat(state.retailers.filter(x=>!have.has(x.name.toLowerCase())));
+  save();render();
+ }catch(e){}
+}
+async function saveGh(){
+ const repo=$('ghRepo').value.trim(),token=$('ghTok').value.trim();
+ if(!/^[\w.-]+\/[\w.-]+$/.test(repo))return toast('Enter the repository as owner/name.');
+ try{localStorage.setItem(GH_KEY,JSON.stringify({repo,token}))}catch(e){return toast('Could not store the settings.')}
+ if(!token)return toast('Token removed. Retailers stay in this browser only.');
+ await pullRetailers(true);await syncRetailers();
+}
 function exportData(){
  const a=document.createElement('a');
  a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));
@@ -322,8 +369,8 @@ document.addEventListener('click',e=>{
  if(e.target.matches('[role=dialog]'))return closeModal(e.target.id);
  const b=e.target.closest('[data-a]');if(!b)return;
  const {a,m,id,i}=b.dataset;
- const actions={add:prepAdd,open:()=>openModal(m),close:()=>closeModal(m),detail:()=>openDetail(id),del:()=>delProduct(id),
-  setprice:()=>setPrice(id,+i),settarget:()=>setTarget(id),delr:()=>delRetailer(+i),export:exportData,reset:resetAll};
+ const actions={add:prepAdd,open:()=>{if(m==='mSet')fillGh();openModal(m)},close:()=>closeModal(m),detail:()=>openDetail(id),del:()=>delProduct(id),
+  setprice:()=>setPrice(id,+i),settarget:()=>setTarget(id),delr:()=>delRetailer(+i),export:exportData,reset:resetAll,savegh:saveGh};
  (actions[a]||(()=>{}))();
 });
 document.addEventListener('keydown',e=>{
@@ -338,6 +385,8 @@ $('q').addEventListener('input',render);
 
 state=load();
 render();
+pullRetailers();
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
 </script>
 </body>
 </html>
