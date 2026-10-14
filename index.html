@@ -120,6 +120,7 @@ const aud=new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'});
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const safeUrl=u=>{try{const x=new URL(u);return /^https?:$/.test(x.protocol)?x.href:'#'}catch(e){return'#'}};
+const cleanUrl=u=>{try{const x=new URL(u);[...x.searchParams.keys()].forEach(k=>{if(/^(utm_|hv|gad_|gclid$|gclsrc$|gbraid$|wbraid$|fbclid$|msclkid$|mcid$|tag$|linkCode$)/i.test(k))x.searchParams.delete(k)});x.pathname=x.pathname.replace(/\/ref=[^/]*$/,'');return x.href}catch(e){return u}};
 const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+Math.random().toString(36).slice(2);
 const DEFAULTS=[
  ['Adidas Australia','adidas.com.au','https://www.adidas.com.au/search?q='],
@@ -133,7 +134,8 @@ const DEFAULTS=[
  ['Woolworths','woolworths.com.au','https://www.woolworths.com.au/shop/search/products?searchTerm='],
  ['Coles','coles.com.au','https://www.coles.com.au/search?q='],
  ['Aldi','aldi.com.au','https://www.aldi.com.au/en/search/?q='],
- ['Kmart','kmart.com.au','https://www.kmart.com.au/search/?searchTerm=']
+ ['Kmart','kmart.com.au','https://www.kmart.com.au/search/?searchTerm='],
+ ['Big W','bigw.com.au','https://www.bigw.com.au/search?q=']
 ];
 let state, chart, lastFocus, tt;
 
@@ -193,14 +195,16 @@ function openDetail(id){
  const rows=state.retailers.map((r,i)=>({r,i,v:p.prices[r.name]>0?p.prices[r.name]:null}))
   .sort((a,b)=>(a.v??Infinity)-(b.v??Infinity))
   .map(({r,i,v})=>{
-   const isLo=lo&&r.name===lo.store,own=r.name===p.sourceStore&&p.addedUrl;
-   const link=own?p.addedUrl:r.searchUrl+encodeURIComponent(p.title);
+   const isLo=lo&&r.name===lo.store;
+   const url=(p.urls&&p.urls[r.name])||(r.name===p.sourceStore&&p.addedUrl)||'';
+   const link=url||r.searchUrl+encodeURIComponent(p.title);
    return `<tr class="border-b border-gray-800">
     <td class="py-2 px-3 text-xs font-semibold text-gray-200">${esc(r.name)}</td>
     <td class="py-2 px-3"><input id="pr-${i}" data-enter="sv-${i}" type="number" min="0.01" step="0.01" value="${v??''}" placeholder="Not recorded" aria-label="Price at ${esc(r.name)}" class="inp !w-32 !py-1 !text-xs"></td>
+    <td class="py-2 px-3"><input id="lk-${i}" data-enter="sv-${i}" type="url" value="${esc(url)}" placeholder="Paste product link" aria-label="Product link at ${esc(r.name)}" class="inp !w-48 !py-1 !text-xs"></td>
     <td class="py-2 px-3 text-xs">${isLo?'<span class="text-emerald-400 font-bold">Lowest</span>':(v!==null&&lo?'<span class="text-red-400">+'+aud.format(v-lo.price)+'</span>':'&mdash;')}</td>
     <td class="py-2 px-3 text-right whitespace-nowrap"><button id="sv-${i}" class="btn !px-3 !py-1" data-a="setprice" data-id="${esc(p.id)}" data-i="${i}">Save</button>
-     <a class="btn !px-3 !py-1 inline-block" href="${esc(safeUrl(link))}" target="_blank" rel="noopener noreferrer">${own?'Open page':'Search store'}</a></td></tr>`;
+     <a class="btn !px-3 !py-1 inline-block" href="${esc(safeUrl(link))}" target="_blank" rel="noopener noreferrer">${url?'Open page':'Search store'}</a></td></tr>`;
   }).join('');
  $('detBody').innerHTML=`
   <h2 id="detTitle" class="text-xl font-bold text-white pr-12">${esc(p.title)}</h2>
@@ -210,7 +214,7 @@ function openDetail(id){
   <div class="bg-gray-900/80 border border-gray-800 rounded-2xl p-4 h-48"><canvas id="ch" role="img" aria-label="Line chart of the lowest recorded price over time"></canvas></div>
   <h4 class="text-sm font-bold text-gray-300 mt-6 mb-2">Price at each store</h4>
   <div class="overflow-x-auto border border-gray-800 rounded-xl"><table class="w-full text-left">
-   <thead><tr class="bg-gray-900 text-xs text-gray-300"><th class="py-2 px-3">Retailer</th><th class="py-2 px-3">Price (AUD)</th><th class="py-2 px-3">Vs lowest</th><th class="py-2 px-3 text-right">Actions</th></tr></thead>
+   <thead><tr class="bg-gray-900 text-xs text-gray-300"><th class="py-2 px-3">Retailer</th><th class="py-2 px-3">Price (AUD)</th><th class="py-2 px-3">Product link</th><th class="py-2 px-3">Vs lowest</th><th class="py-2 px-3 text-right">Actions</th></tr></thead>
    <tbody>${rows}</tbody></table></div>
   <p class="text-xs text-gray-400 mt-2">Enter the price you see at a store and save. Clear the box and save to remove it.</p>`;
  if($('mDet').classList.contains('hidden'))openModal('mDet');
@@ -224,11 +228,13 @@ function openDetail(id){
 }
 
 function setPrice(id,i){
- const p=get(id),r=state.retailers[i],raw=$('pr-'+i).value.trim();
+ const p=get(id),r=state.retailers[i],raw=$('pr-'+i).value.trim(),lk=$('lk-'+i).value.trim();
+ if(lk){if(safeUrl(lk)==='#')return toast('Enter a valid http(s) link.');(p.urls=p.urls||{})[r.name]=cleanUrl(lk)}else if(p.urls){delete p.urls[r.name]}
  if(raw===''){delete p.prices[r.name]}
  else{const v=parseFloat(raw);if(!(v>0))return toast('Enter a price above $0.');p.prices[r.name]=v}
  const lo=lowest(p);
- if(lo)p.history=(p.history||[]).concat({t:new Date().toISOString(),price:lo.price}).slice(-365);
+ const hh=p.history||[];
+ if(lo&&(!hh.length||hh[hh.length-1].price!==lo.price))p.history=hh.concat({t:new Date().toISOString(),price:lo.price}).slice(-365);
  save();render();openDetail(id);toast('Price saved.');
 }
 function setTarget(id){
@@ -267,8 +273,8 @@ function addProduct(e){
  try{u=new URL(url)}catch(_){return toast('Enter a valid URL.')}
  if(!/^https?:$/.test(u.protocol))return toast('The URL must start with http:// or https://.');
  const price=parseFloat($('fPrice').value);if(!(price>0))return toast('Enter a price above $0.');
- const store=$('fStore').value,t=parseFloat($('fTarget').value);
- const p={id:uid(),title:$('fTitle').value.trim(),addedUrl:url,sourceStore:store,target:t>0?t:null,
+ const store=$('fStore').value,t=parseFloat($('fTarget').value),clean=cleanUrl(url);
+ const p={id:uid(),title:$('fTitle').value.trim(),addedUrl:clean,sourceStore:store,urls:{[store]:clean},target:t>0?t:null,
   prices:{[store]:price},history:[{t:new Date().toISOString(),price}]};
  state.products.unshift(p);save();closeModal('mAdd');render();openDetail(p.id);
 }
