@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Manual multi-retailer price tracker for Australian stores, in AUD.">
+<meta name="theme-color" content="#0b0f19">
+<title>AusPriceTracker</title>
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>tailwind.config={darkMode:'class',theme:{extend:{colors:{darkbg:'#0b0f19',darkcard:'#111827',darkborder:'#1f2937'}}}}</script>
+<style type="text/tailwindcss">
+@layer components{
+ .card{@apply bg-darkcard border border-darkborder rounded-2xl}
+ .inp{@apply w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-green-500}
+ .btn{@apply px-4 py-2 rounded-xl text-xs font-semibold border border-gray-700 bg-gray-800 text-gray-200 hover:bg-gray-700 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-400}
+ .btn-g{@apply bg-green-600 border-green-600 text-white hover:bg-green-500}
+ .modal{@apply fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4}
+ .lbl{@apply block text-xs font-medium text-gray-300 mb-1}
+}
+</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-darkbg text-gray-100 min-h-screen font-sans flex flex-col antialiased">
+
+<header class="bg-darkcard border-b border-darkborder sticky top-0 z-40">
+ <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+  <div class="flex items-center gap-3">
+   <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-green-500 to-emerald-400 flex items-center justify-center text-slate-950 text-xl"><i class="fa-solid fa-tags"></i></div>
+   <div><h1 class="text-lg font-bold text-white">AusPriceTracker</h1><p class="text-xs text-gray-400">Record prices by store, see the lowest</p></div>
+  </div>
+  <div class="flex items-center gap-2">
+   <button class="btn btn-g" data-a="add"><i class="fa-solid fa-plus mr-1"></i>Add product</button>
+   <button class="btn" data-a="open" data-m="mSet" aria-label="Settings"><i class="fa-solid fa-gear"></i></button>
+  </div>
+ </div>
+</header>
+
+<main class="flex-1 max-w-7xl w-full mx-auto px-4 py-8 space-y-8">
+ <section class="card p-6">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+   <div>
+    <h2 class="text-xl font-bold text-white">Compare prices across Australian retailers</h2>
+    <p class="text-sm text-gray-400 mt-1">Add a product, then enter the price you see at each store. Nothing is fetched automatically. <span id="rc" class="text-gray-300"></span></p>
+   </div>
+   <button class="btn" data-a="open" data-m="mRet"><i class="fa-solid fa-plus-circle text-green-400 mr-1"></i>Add retailer</button>
+  </div>
+  <div id="chips" class="mt-5 pt-4 border-t border-gray-800 flex flex-wrap gap-2"></div>
+ </section>
+
+ <section class="grid grid-cols-1 md:grid-cols-3 gap-5" aria-label="Summary">
+  <div class="card p-5"><p class="text-xs text-gray-400">Products tracked</p><p id="sTot" class="text-2xl font-bold text-white">0</p></div>
+  <div class="card p-5"><p class="text-xs text-gray-400">Targets reached</p><p id="sAl" class="text-2xl font-bold text-white">0</p></div>
+  <div class="card p-5"><p class="text-xs text-gray-400">Average lowest price</p><p id="sAvg" class="text-2xl font-bold text-white">$0.00</p></div>
+ </section>
+
+ <section>
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+   <h3 class="text-lg font-bold text-white">Tracked items <span id="cnt" class="text-xs bg-gray-800 text-gray-300 border border-gray-700 px-2 py-0.5 rounded-full">0</span></h3>
+   <div class="sm:w-64"><label class="sr-only" for="q">Search products</label><input id="q" class="inp" placeholder="Search products"></div>
+  </div>
+  <div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  <div id="empty" class="hidden card border-dashed p-12 text-center max-w-md mx-auto">
+   <h4 class="text-lg font-bold text-white mb-1">No products yet</h4>
+   <p class="text-sm text-gray-400 mb-5">Add a product link and the price you found to start tracking.</p>
+   <button class="btn btn-g" data-a="add">Add your first product</button>
+  </div>
+ </section>
+</main>
+
+<footer class="bg-darkcard border-t border-darkborder py-6 mt-12 text-center text-xs text-gray-400 px-4">
+ Prices are entered by you and stored in this browser only. Use Settings &rarr; Export to back up. All prices in AUD.
+</footer>
+
+<div id="mAdd" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="tAdd">
+ <form id="fAdd" class="card w-full max-w-lg p-6 space-y-4">
+  <h3 id="tAdd" class="text-base font-bold text-white">Add product</h3>
+  <div><label class="lbl" for="fUrl">Product page URL</label><input id="fUrl" type="url" required class="inp" placeholder="https://www.example.com.au/product"></div>
+  <div><label class="lbl" for="fTitle">Product name</label><input id="fTitle" required class="inp"></div>
+  <div class="grid grid-cols-2 gap-3">
+   <div><label class="lbl" for="fStore">Store for this link</label><select id="fStore" class="inp"></select></div>
+   <div><label class="lbl" for="fPrice">Price there (AUD)</label><input id="fPrice" type="number" min="0.01" step="0.01" required class="inp"></div>
+  </div>
+  <div><label class="lbl" for="fTarget">Target price (optional)</label><input id="fTarget" type="number" min="0.01" step="0.01" class="inp"></div>
+  <div class="flex justify-end gap-2 pt-2"><button type="button" class="btn" data-a="close" data-m="mAdd">Cancel</button><button class="btn btn-g">Add product</button></div>
+ </form>
+</div>
+
+<div id="mDet" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="detTitle">
+ <div class="card w-full max-w-4xl p-6 max-h-[90vh] overflow-y-auto relative">
+  <button class="absolute top-4 right-4 btn" data-a="close" data-m="mDet" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+  <div id="detBody"></div>
+ </div>
+</div>
+
+<div id="mRet" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="tRet">
+ <form id="fRet" class="card w-full max-w-md p-6 space-y-4">
+  <h3 id="tRet" class="text-base font-bold text-white">Add retailer</h3>
+  <div><label class="lbl" for="rName">Retailer name</label><input id="rName" required class="inp" placeholder="Myer"></div>
+  <div><label class="lbl" for="rDom">Website</label><input id="rDom" required class="inp" placeholder="myer.com.au"></div>
+  <div class="flex justify-end gap-2 pt-2"><button type="button" class="btn" data-a="close" data-m="mRet">Cancel</button><button class="btn btn-g">Add retailer</button></div>
+ </form>
+</div>
+
+<div id="mSet" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="tSet">
+ <div class="card w-full max-w-md p-6 space-y-5">
+  <h3 id="tSet" class="text-base font-bold text-white">Settings</h3>
+  <div class="flex items-center justify-between"><span class="text-sm text-gray-300">Back up your data</span><button class="btn" data-a="export">Export JSON</button></div>
+  <div><label class="lbl" for="fImp">Restore from a JSON export</label><input id="fImp" type="file" accept="application/json" class="text-xs text-gray-300"></div>
+  <div class="flex items-center justify-between border-t border-gray-800 pt-4"><span class="text-sm text-gray-300">Delete everything</span><button class="btn text-red-400" data-a="reset">Reset all data</button></div>
+  <div class="flex justify-end"><button class="btn btn-g" data-a="close" data-m="mSet">Done</button></div>
+ </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] bg-gray-800 border border-gray-700 text-sm px-4 py-2 rounded-xl"></div>
+
+<script>
+const KEY='aus_tracker_v2';
+const aud=new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD'});
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeUrl=u=>{try{const x=new URL(u);return /^https?:$/.test(x.protocol)?x.href:'#'}catch(e){return'#'}};
+const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+Math.random().toString(36).slice(2);
+const DEFAULTS=[
+ ['Adidas Australia','adidas.com.au','https://www.adidas.com.au/search?q='],
+ ['Bunnings','bunnings.com.au','https://www.bunnings.com.au/search/products?q='],
+ ['Amazon AU','amazon.com.au','https://www.amazon.com.au/s?k='],
+ ['JB Hi-Fi','jbhifi.com.au','https://www.jbhifi.com.au/search?query='],
+ ['Harvey Norman','harveynorman.com.au','https://www.harveynorman.com.au/catalogsearch/result/?q='],
+ ['Officeworks','officeworks.com.au','https://www.officeworks.com.au/shop/officeworks/search?q='],
+ ['Costco AU','costco.com.au','https://www.costco.com.au/search?text='],
+ ['Chemist Warehouse','chemistwarehouse.com.au','https://www.chemistwarehouse.com.au/search?searchtext='],
+ ['Woolworths','woolworths.com.au','https://www.woolworths.com.au/shop/search/products?searchTerm='],
+ ['Coles','coles.com.au','https://www.coles.com.au/search?q='],
+ ['Aldi','aldi.com.au','https://www.aldi.com.au/en/search/?q='],
+ ['Kmart','kmart.com.au','https://www.kmart.com.au/search/?searchTerm=']
+];
+let state, chart, lastFocus, tt;
+
+function sample(){
+ const d=n=>new Date(Date.now()-n*864e5).toISOString();
+ return {id:'demo',demo:true,title:'Demo: wireless headphones (sample data)',addedUrl:'',sourceStore:'',target:250,
+  prices:{'JB Hi-Fi':299,'Amazon AU':289,'Harvey Norman':299},
+  history:[{t:d(21),price:309},{t:d(14),price:299},{t:d(7),price:289},{t:d(0),price:289}]};
+}
+const fresh=()=>({retailers:DEFAULTS.map(([name,domain,searchUrl])=>({name,domain,searchUrl})),products:[sample()]});
+function load(){
+ try{
+  const raw=localStorage.getItem(KEY);
+  if(raw!==null){const s=JSON.parse(raw);if(Array.isArray(s.products)&&Array.isArray(s.retailers))return s}
+ }catch(e){}
+ return fresh();
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){toast('Could not save. Browser storage is full or blocked.')}}
+function toast(m){const t=$('toast');t.textContent=m;t.classList.remove('hidden');clearTimeout(tt);tt=setTimeout(()=>t.classList.add('hidden'),3500)}
+
+const get=id=>state.products.find(p=>p.id===id);
+function lowest(p){let b=null;for(const [s,v] of Object.entries(p.prices||{}))if(v>0&&(!b||v<b.price))b={store:s,price:v};return b}
+const reached=p=>{const l=lowest(p);return !!(l&&p.target&&l.price<=p.target)};
+
+function card(p){
+ const lo=lowest(p),n=Object.values(p.prices).filter(v=>v>0).length,hit=reached(p),id=esc(p.id);
+ return `<article class="card p-5 flex flex-col gap-4">
+  <div class="flex justify-between gap-2"><h4 class="font-bold text-white leading-snug">${esc(p.title)}</h4>${p.demo?'<span class="text-xs text-amber-400 border border-amber-500/30 rounded-full px-2 h-fit">Sample</span>':''}</div>
+  <p class="text-xs text-gray-400">Price recorded at <b class="text-gray-200">${n}</b> of ${state.retailers.length} stores</p>
+  <div class="bg-gray-900/60 border border-gray-800 rounded-xl p-3 flex justify-between">
+   <div><p class="text-xs text-gray-400">Lowest recorded</p><p class="text-xl font-black text-emerald-400">${lo?aud.format(lo.price):'&mdash;'}</p></div>
+   <div class="text-right"><p class="text-xs text-gray-400">At</p><p class="text-xs font-semibold text-emerald-400">${lo?esc(lo.store):'&mdash;'}</p></div>
+  </div>
+  <p class="text-xs ${hit?'text-emerald-400 font-bold':'text-gray-400'}">${p.target?(hit?'Target reached: ':'Target: ')+aud.format(p.target):'No target price set'}</p>
+  <div class="flex gap-2 mt-auto">
+   <button class="btn flex-1" data-a="detail" data-id="${id}">Compare and update prices</button>
+   <button class="btn" data-a="del" data-id="${id}" aria-label="Delete ${esc(p.title)}"><i class="fa-solid fa-trash-can"></i></button>
+  </div></article>`;
+}
+
+function render(){
+ const q=$('q').value.toLowerCase(),list=state.products.filter(p=>p.title.toLowerCase().includes(q));
+ $('grid').innerHTML=list.map(card).join('');
+ $('cnt').textContent=list.length;
+ $('empty').classList.toggle('hidden',state.products.length>0);
+ $('rc').textContent=state.retailers.length+' retailers listed.';
+ $('chips').innerHTML=state.retailers.map((r,i)=>`<span class="bg-gray-900 border border-gray-800 rounded-lg pl-2.5 pr-1 py-1 flex items-center gap-2 text-xs text-gray-300"><i class="fa-solid fa-store text-green-400"></i>${esc(r.name)}<button class="px-1.5 text-gray-400 hover:text-red-400" data-a="delr" data-i="${i}" aria-label="Remove ${esc(r.name)}">&times;</button></span>`).join('');
+ const los=state.products.map(lowest).filter(Boolean);
+ $('sTot').textContent=state.products.length;
+ $('sAl').textContent=state.products.filter(reached).length;
+ $('sAvg').textContent=aud.format(los.length?los.reduce((a,l)=>a+l.price,0)/los.length:0);
+}
+
+function openDetail(id){
+ const p=get(id);if(!p)return;
+ const lo=lowest(p),h=p.history||[];
+ const rows=state.retailers.map((r,i)=>({r,i,v:p.prices[r.name]>0?p.prices[r.name]:null}))
+  .sort((a,b)=>(a.v??Infinity)-(b.v??Infinity))
+  .map(({r,i,v})=>{
+   const isLo=lo&&r.name===lo.store,own=r.name===p.sourceStore&&p.addedUrl;
+   const link=own?p.addedUrl:r.searchUrl+encodeURIComponent(p.title);
+   return `<tr class="border-b border-gray-800">
+    <td class="py-2 px-3 text-xs font-semibold text-gray-200">${esc(r.name)}</td>
+    <td class="py-2 px-3"><input id="pr-${i}" data-enter="sv-${i}" type="number" min="0.01" step="0.01" value="${v??''}" placeholder="Not recorded" aria-label="Price at ${esc(r.name)}" class="inp !w-32 !py-1 !text-xs"></td>
+    <td class="py-2 px-3 text-xs">${isLo?'<span class="text-emerald-400 font-bold">Lowest</span>':(v!==null&&lo?'<span class="text-red-400">+'+aud.format(v-lo.price)+'</span>':'&mdash;')}</td>
+    <td class="py-2 px-3 text-right whitespace-nowrap"><button id="sv-${i}" class="btn !px-3 !py-1" data-a="setprice" data-id="${esc(p.id)}" data-i="${i}">Save</button>
+     <a class="btn !px-3 !py-1 inline-block" href="${esc(safeUrl(link))}" target="_blank" rel="noopener noreferrer">${own?'Open page':'Search store'}</a></td></tr>`;
+  }).join('');
+ $('detBody').innerHTML=`
+  <h2 id="detTitle" class="text-xl font-bold text-white pr-12">${esc(p.title)}</h2>
+  <p class="text-sm text-gray-400 mt-1">${lo?`Lowest recorded: <b class="text-emerald-400">${aud.format(lo.price)}</b> at ${esc(lo.store)}`:'No prices recorded yet'}</p>
+  <div class="flex items-end gap-2 mt-4 max-w-xs"><div class="flex-1"><label class="lbl" for="tgt">Target price (AUD)</label><input id="tgt" data-enter="sv-t" type="number" min="0.01" step="0.01" value="${p.target??''}" class="inp"></div><button id="sv-t" class="btn btn-g" data-a="settarget" data-id="${esc(p.id)}">Save target</button></div>
+  <h4 class="text-sm font-bold text-gray-300 mt-6 mb-2">Lowest price over time (${h.length} recorded ${h.length===1?'entry':'entries'})</h4>
+  <div class="bg-gray-900/80 border border-gray-800 rounded-2xl p-4 h-48"><canvas id="ch" role="img" aria-label="Line chart of the lowest recorded price over time"></canvas></div>
+  <h4 class="text-sm font-bold text-gray-300 mt-6 mb-2">Price at each store</h4>
+  <div class="overflow-x-auto border border-gray-800 rounded-xl"><table class="w-full text-left">
+   <thead><tr class="bg-gray-900 text-xs text-gray-300"><th class="py-2 px-3">Retailer</th><th class="py-2 px-3">Price (AUD)</th><th class="py-2 px-3">Vs lowest</th><th class="py-2 px-3 text-right">Actions</th></tr></thead>
+   <tbody>${rows}</tbody></table></div>
+  <p class="text-xs text-gray-400 mt-2">Enter the price you see at a store and save. Clear the box and save to remove it.</p>`;
+ if($('mDet').classList.contains('hidden'))openModal('mDet');
+ if(chart)chart.destroy();
+ if(typeof Chart!=='undefined'&&h.length){
+  chart=new Chart($('ch'),{type:'line',data:{labels:h.map(x=>new Date(x.t).toLocaleDateString('en-AU',{day:'numeric',month:'short'})),
+   datasets:[{data:h.map(x=>x.price),borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.1)',fill:true,tension:.3}]},
+   options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{grid:{color:'#1f2937'},ticks:{color:'#9ca3af'}},y:{grid:{color:'#1f2937'},ticks:{color:'#9ca3af',callback:v=>'$'+v}}}}});
+ }
+}
+
+function setPrice(id,i){
+ const p=get(id),r=state.retailers[i],raw=$('pr-'+i).value.trim();
+ if(raw===''){delete p.prices[r.name]}
+ else{const v=parseFloat(raw);if(!(v>0))return toast('Enter a price above $0.');p.prices[r.name]=v}
+ const lo=lowest(p);
+ if(lo)p.history=(p.history||[]).concat({t:new Date().toISOString(),price:lo.price}).slice(-365);
+ save();render();openDetail(id);toast('Price saved.');
+}
+function setTarget(id){
+ const p=get(id),v=parseFloat($('tgt').value);
+ p.target=v>0?v:null;save();render();openDetail(id);toast('Target saved.');
+}
+function delProduct(id){
+ if(!confirm('Stop tracking this product?'))return;
+ state.products=state.products.filter(p=>p.id!==id);save();render();
+}
+function delRetailer(i){
+ const r=state.retailers[i];
+ if(!confirm(`Remove ${r.name}? Prices you recorded for it will be deleted.`))return;
+ state.retailers.splice(i,1);state.products.forEach(p=>delete p.prices[r.name]);save();render();
+}
+
+function prepAdd(){
+ $('fAdd').reset();
+ $('fStore').innerHTML=state.retailers.map(r=>`<option>${esc(r.name)}</option>`).join('');
+ openModal('mAdd');
+}
+function guessFromUrl(){
+ try{
+  const u=new URL($('fUrl').value),h=u.hostname.replace(/^www\./,'');
+  const r=state.retailers.find(r=>h===r.domain||h.endsWith('.'+r.domain));
+  if(r)$('fStore').value=r.name;
+  if(!$('fTitle').value){
+   const seg=u.pathname.split('/').filter(s=>s.length>4&&!/\.html?$/.test(s))[0];
+   if(seg)$('fTitle').value=decodeURIComponent(seg).replace(/[-_+]/g,' ');
+  }
+ }catch(e){}
+}
+function addProduct(e){
+ e.preventDefault();
+ const url=$('fUrl').value.trim();let u;
+ try{u=new URL(url)}catch(_){return toast('Enter a valid URL.')}
+ if(!/^https?:$/.test(u.protocol))return toast('The URL must start with http:// or https://.');
+ const price=parseFloat($('fPrice').value);if(!(price>0))return toast('Enter a price above $0.');
+ const store=$('fStore').value,t=parseFloat($('fTarget').value);
+ const p={id:uid(),title:$('fTitle').value.trim(),addedUrl:url,sourceStore:store,target:t>0?t:null,
+  prices:{[store]:price},history:[{t:new Date().toISOString(),price}]};
+ state.products.unshift(p);save();closeModal('mAdd');render();openDetail(p.id);
+}
+function addRetailer(e){
+ e.preventDefault();
+ const name=$('rName').value.trim(),dom=$('rDom').value.trim().replace(/^https?:\/\//i,'').replace(/^www\./i,'').split('/')[0].toLowerCase();
+ if(state.retailers.some(r=>r.name.toLowerCase()===name.toLowerCase()))return toast('That retailer is already listed.');
+ try{new URL('https://'+dom)}catch(_){return toast('Enter a valid website, for example myer.com.au.')}
+ state.retailers.push({name,domain:dom,searchUrl:`https://${dom}/search?q=`});
+ save();closeModal('mRet');render();toast('Retailer added.');
+}
+
+function exportData(){
+ const a=document.createElement('a');
+ a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));
+ a.download='price-tracker-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);
+}
+function importData(file){
+ if(!file)return;
+ const fr=new FileReader();
+ fr.onload=()=>{
+  try{
+   const s=JSON.parse(fr.result);
+   if(!Array.isArray(s.products)||!Array.isArray(s.retailers))throw 0;
+   if(!s.retailers.every(r=>typeof r.name==='string'&&typeof r.domain==='string'))throw 0;
+   s.retailers.forEach(r=>{r.searchUrl=typeof r.searchUrl==='string'?r.searchUrl:`https://${r.domain}/search?q=`});
+   s.products.forEach(p=>{
+    if(typeof p.title!=='string'||typeof p.prices!=='object'||!p.prices)throw 0;
+    p.id=String(p.id||uid());p.history=Array.isArray(p.history)?p.history:[];
+   });
+   state=s;save();render();closeModal('mSet');toast('Data restored.');
+  }catch(e){toast('That file is not a valid export.')}
+ };
+ fr.readAsText(file);
+}
+function resetAll(){
+ if(!confirm('Delete all products and retailers and restore the sample?'))return;
+ state=fresh();save();render();closeModal('mSet');
+}
+
+function openModal(id){lastFocus=document.activeElement;const m=$(id);m.classList.remove('hidden');(m.querySelector('input,select,button'))?.focus()}
+function closeModal(id){$(id).classList.add('hidden');if(lastFocus&&lastFocus.focus)lastFocus.focus()}
+
+document.addEventListener('click',e=>{
+ if(e.target.matches('[role=dialog]'))return closeModal(e.target.id);
+ const b=e.target.closest('[data-a]');if(!b)return;
+ const {a,m,id,i}=b.dataset;
+ const actions={add:prepAdd,open:()=>openModal(m),close:()=>closeModal(m),detail:()=>openDetail(id),del:()=>delProduct(id),
+  setprice:()=>setPrice(id,+i),settarget:()=>setTarget(id),delr:()=>delRetailer(+i),export:exportData,reset:resetAll};
+ (actions[a]||(()=>{}))();
+});
+document.addEventListener('keydown',e=>{
+ if(e.key==='Escape')document.querySelectorAll('[role=dialog]:not(.hidden)').forEach(m=>closeModal(m.id));
+ if(e.key==='Enter'&&e.target.dataset&&e.target.dataset.enter){e.preventDefault();$(e.target.dataset.enter).click()}
+});
+$('fAdd').addEventListener('submit',addProduct);
+$('fRet').addEventListener('submit',addRetailer);
+$('fUrl').addEventListener('input',guessFromUrl);
+$('fImp').addEventListener('change',e=>importData(e.target.files[0]));
+$('q').addEventListener('input',render);
+
+state=load();
+render();
+</script>
+</body>
+</html>
