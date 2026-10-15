@@ -1,0 +1,67 @@
+[
+  {
+    "name": "Adidas Australia",
+    "domain": "adidas.com.au",
+    "searchUrl": "https://www.adidas.com.au/search?q="
+  },
+  {
+    "name": "Bunnings",
+    "domain": "bunnings.com.au",
+    "searchUrl": "https://www.bunnings.com.au/search/products?q="
+  },
+  {
+    "name": "Amazon AU",
+    "domain": "amazon.com.au",
+    "searchUrl": "https://www.amazon.com.au/s?k="
+  },
+  {
+    "name": "JB Hi-Fi",
+    "domain": "jbhifi.com.au",
+    "searchUrl": "https://www.jbhifi.com.au/search?query="
+  },
+  {
+    "name": "Harvey Norman",
+    "domain": "harveynorman.com.au",
+    "searchUrl": "https://www.harveynorman.com.au/catalogsearch/result/?q="
+  },
+  {
+    "name": "Officeworks",
+    "domain": "officeworks.com.au",
+    "searchUrl": "https://www.officeworks.com.au/shop/officeworks/search?q="
+  },
+  {
+    "name": "Costco AU",
+    "domain": "costco.com.au",
+    "searchUrl": "https://www.costco.com.au/search?text="
+  },
+  {
+    "name": "Chemist Warehouse",
+    "domain": "chemistwarehouse.com.au",
+    "searchUrl": "https://www.chemistwarehouse.com.au/search?searchtext="
+  },
+  {
+    "name": "Woolworths",
+    "domain": "woolworths.com.au",
+    "searchUrl": "https://www.woolworths.com.au/shop/search/products?searchTerm="
+  },
+  {
+    "name": "Coles",
+    "domain": "coles.com.au",
+    "searchUrl": "https://www.coles.com.au/search?q="
+  },
+  {
+    "name": "Aldi",
+    "domain": "aldi.com.au",
+    "searchUrl": "https://www.aldi.com.au/en/search/?q="
+  },
+  {
+    "name": "Kmart",
+    "domain": "kmart.com.au",
+    "searchUrl": "https://www.kmart.com.au/search/?searchTerm="
+  },
+  {
+    "name": "BigW",
+    "domain": "bigw.com.au",
+    "searchUrl": "https://bigw.com.au/search?q="
+  }
+]
