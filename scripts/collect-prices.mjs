@@ -33,7 +33,7 @@ export function extract(html) {
 async function check(url) {
   if (/(^|\.)amazon\./i.test(new URL(url).hostname)) return { status: 'manual only (Amazon terms)' };
   try {
-    const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'text/html', 'Accept-Language': 'en-AU' }, signal: AbortSignal.timeout(20000) });
+    const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'text/html', 'Accept-Language': 'en-AU' }, signal: AbortSignal.timeout(45000) });
     if (!r.ok) return { status: `blocked or unavailable (HTTP ${r.status})` };
     const html = await r.text();
     const price = extract(html);
@@ -41,6 +41,7 @@ async function check(url) {
     const types = [...new Set([...html.matchAll(/"@type"\s*:\s*"([^"]+)"/g)].map(m => m[1]))].slice(0, 6).join(',');
     const title = ((html.match(/<title[^>]*>([^<]*)/i) || [])[1] || '').trim().slice(0, 60);
     console.log(`  diag: title="${title}" length=${html.length} ldjson=${(html.match(/application\/ld\+json/g) || []).length} types=${types} priceMentions=${(html.match(/"price"/g) || []).length}`);
+    [...html.matchAll(/"price"/g)].slice(0, 5).forEach(m => console.log('  price context:', html.slice(Math.max(0, m.index - 120), m.index + 80).replace(/\s+/g, ' ')));
     return { status: 'price not found in page' };
   } catch (e) { return { status: `request failed (${e.cause?.code || e.name})` }; }
 }
