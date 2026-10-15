@@ -1,35 +1,35 @@
 {
-  "updated": "2026-10-15T03:39:28.806Z",
+  "updated": "2026-10-15T20:22:42.848Z",
   "results": {
     "fa211ee8-e86a-40c8-8eb7-ecae265ca20f": {
       "JB Hi-Fi": {
-        "t": "2026-10-15T03:38:29.103Z",
+        "t": "2026-10-15T20:21:43.195Z",
         "status": "ok",
         "price": 399
       },
       "Woolworths": {
-        "t": "2026-10-15T03:38:31.219Z",
+        "t": "2026-10-15T20:21:45.298Z",
         "status": "blocked or unavailable (HTTP 403)"
       },
       "BigW": {
-        "t": "2026-10-15T03:39:18.221Z",
+        "t": "2026-10-15T20:22:32.300Z",
         "status": "request failed (TimeoutError)"
       },
       "Officeworks": {
-        "t": "2026-10-15T03:39:20.697Z",
+        "t": "2026-10-15T20:22:34.709Z",
         "status": "ok",
         "price": 395
       },
       "Bunnings": {
-        "t": "2026-10-15T03:39:22.748Z",
+        "t": "2026-10-15T20:22:36.762Z",
         "status": "blocked or unavailable (HTTP 403)"
       },
       "Amazon AU": {
-        "t": "2026-10-15T03:39:24.748Z",
+        "t": "2026-10-15T20:22:38.763Z",
         "status": "manual only (Amazon terms)"
       },
       "Harvey Norman": {
-        "t": "2026-10-15T03:39:26.804Z",
+        "t": "2026-10-15T20:22:40.846Z",
         "status": "price not found in page"
       }
     }
