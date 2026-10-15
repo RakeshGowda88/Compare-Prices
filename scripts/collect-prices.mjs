@@ -25,8 +25,8 @@ export function extract(html) {
   for (const m of html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
     try { const p = walk(JSON.parse(m[1].trim())); if (p) return p; } catch {}
   }
-  const m = html.match(/<meta[^>]+(?:property|itemprop|name)=["'](?:product:price:amount|og:price:amount)["'][^>]+content=["']([^"']+)["']/i)
-    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|itemprop|name)=["'](?:product:price:amount|og:price:amount)["']/i);
+  const m = html.match(/<meta[^>]+(?:property|itemprop|name)=["'](?:product:price:amount|og:price:amount|price)["'][^>]+content=["']([^"']+)["']/i)
+    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|itemprop|name)=["'](?:product:price:amount|og:price:amount|price)["']/i);
   return m ? num(m[1]) : null;
 }
 
@@ -35,9 +35,14 @@ async function check(url) {
   try {
     const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'text/html', 'Accept-Language': 'en-AU' }, signal: AbortSignal.timeout(20000) });
     if (!r.ok) return { status: `blocked or unavailable (HTTP ${r.status})` };
-    const price = extract(await r.text());
-    return price ? { status: 'ok', price } : { status: 'price not found in page' };
-  } catch { return { status: 'request failed' }; }
+    const html = await r.text();
+    const price = extract(html);
+    if (price) return { status: 'ok', price };
+    const types = [...new Set([...html.matchAll(/"@type"\s*:\s*"([^"]+)"/g)].map(m => m[1]))].slice(0, 6).join(',');
+    const title = ((html.match(/<title[^>]*>([^<]*)/i) || [])[1] || '').trim().slice(0, 60);
+    console.log(`  diag: title="${title}" length=${html.length} ldjson=${(html.match(/application\/ld\+json/g) || []).length} types=${types} priceMentions=${(html.match(/"price"/g) || []).length}`);
+    return { status: 'price not found in page' };
+  } catch (e) { return { status: `request failed (${e.cause?.code || e.name})` }; }
 }
 
 async function main() {
