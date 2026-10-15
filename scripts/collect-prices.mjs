@@ -30,13 +30,23 @@ export function extract(html) {
   return m ? num(m[1]) : null;
 }
 
+// Store-specific readers for sites without standard structured data.
+const SITE = {
+  // Officeworks embeds the price in cents (GST included), e.g. "price":39500 = $395.00
+  'officeworks.com.au': h => { const m = h.match(/"owProductPrice":\{"price":\{"[^"]+":\{"price":(\d+)/); return m ? num(m[1]) / 100 : null; },
+};
+export function extractSite(host, html) {
+  for (const [d, f] of Object.entries(SITE)) if (host === d || host.endsWith('.' + d)) return f(html);
+  return null;
+}
+
 async function check(url) {
   if (/(^|\.)amazon\./i.test(new URL(url).hostname)) return { status: 'manual only (Amazon terms)' };
   try {
     const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'text/html', 'Accept-Language': 'en-AU' }, signal: AbortSignal.timeout(45000) });
     if (!r.ok) return { status: `blocked or unavailable (HTTP ${r.status})` };
     const html = await r.text();
-    const price = extract(html);
+    const price = extract(html) ?? extractSite(new URL(url).hostname.replace(/^www\./, ''), html);
     if (price) return { status: 'ok', price };
     const types = [...new Set([...html.matchAll(/"@type"\s*:\s*"([^"]+)"/g)].map(m => m[1]))].slice(0, 6).join(',');
     const title = ((html.match(/<title[^>]*>([^<]*)/i) || [])[1] || '').trim().slice(0, 60);
