@@ -1,22 +1,22 @@
 {
-  "updated": "2026-10-15T01:42:30.727Z",
+  "updated": "2026-10-15T03:13:21.787Z",
   "results": {
     "fa211ee8-e86a-40c8-8eb7-ecae265ca20f": {
       "JB Hi-Fi": {
-        "t": "2026-10-15T01:42:01.611Z",
+        "t": "2026-10-15T03:12:53.194Z",
         "status": "ok",
         "price": 399
       },
       "Woolworths": {
-        "t": "2026-10-15T01:42:03.675Z",
+        "t": "2026-10-15T03:12:55.308Z",
         "status": "blocked or unavailable (HTTP 403)"
       },
       "BigW": {
-        "t": "2026-10-15T01:42:25.678Z",
-        "status": "request failed"
+        "t": "2026-10-15T03:13:17.309Z",
+        "status": "request failed (TimeoutError)"
       },
       "Officeworks": {
-        "t": "2026-10-15T01:42:28.726Z",
+        "t": "2026-10-15T03:13:19.786Z",
         "status": "price not found in page"
       }
     }
