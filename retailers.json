@@ -68,5 +68,10 @@
     "name": "Myer",
     "domain": "myer.com.au",
     "searchUrl": "https://myer.com.au/search?q="
+  },
+  {
+    "name": "eBay",
+    "domain": "ebay.com.au",
+    "searchUrl": "https://ebay.com.au/search?q="
   }
 ]
