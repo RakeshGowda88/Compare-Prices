@@ -114,9 +114,28 @@
    <div><label class="lbl" for="ghTok">Token</label><input id="ghTok" type="password" autocomplete="off" class="inp"></div>
    <button class="btn" data-a="savegh">Save and sync</button>
   </div>
+  <div class="border-t border-gray-800 pt-4 space-y-3">
+   <p class="text-sm text-gray-300">Capture a price from a store page</p>
+   <p class="text-xs text-gray-400">Drag this button to your bookmarks bar. On a store's product page, highlight the price if you can, then click the bookmark. The tracker opens with the link and price filled in.</p>
+   <div class="flex gap-2"><a id="bmLink" class="btn btn-g" draggable="true">Save to tracker</a><button class="btn" data-a="copybm">Copy bookmarklet</button></div>
+  </div>
   <div class="flex items-center justify-between border-t border-gray-800 pt-4"><span class="text-sm text-gray-300">Delete everything</span><button class="btn text-red-400" data-a="reset">Reset all data</button></div>
   <div class="flex justify-end"><button class="btn btn-g" data-a="close" data-m="mSet">Done</button></div>
  </div>
+</div>
+
+<div id="mCap" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="tCap">
+ <form id="fCap" class="card w-full max-w-lg p-6 space-y-4">
+  <h3 id="tCap" class="text-base font-bold text-white">Save captured price</h3>
+  <p id="cUrl" class="text-xs text-gray-400 break-all"></p>
+  <div><label class="lbl" for="cProd">Product</label><select id="cProd" class="inp"></select></div>
+  <div><label class="lbl" for="cTitle">Name (used only for a new product)</label><input id="cTitle" class="inp"></div>
+  <div class="grid grid-cols-2 gap-3">
+   <div><label class="lbl" for="cStore">Store</label><select id="cStore" class="inp"></select></div>
+   <div><label class="lbl" for="cPrice">Price (AUD)</label><input id="cPrice" type="number" min="0.01" step="0.01" required class="inp"></div>
+  </div>
+  <div class="flex justify-end gap-2 pt-2"><button type="button" class="btn" data-a="close" data-m="mCap">Cancel</button><button class="btn btn-g">Save price</button></div>
+ </form>
 </div>
 
 <div id="toast" role="status" aria-live="polite" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] bg-gray-800 border border-gray-700 text-sm px-4 py-2 rounded-xl"></div>
@@ -363,6 +382,54 @@ async function saveGh(){
  if(!token)return toast('Token removed. Retailers stay in this browser only.');
  await pullRetailers(true);await syncRetailers();syncProducts();
 }
+let capt;
+function bmHref(){
+ const fn=function(SITE){
+  var n=function(v){v=parseFloat(String(v).replace(/[^0-9.]/g,''));return v>0?v:0};
+  var off=function(o){if(!o||typeof o!=='object')return 0;if(Array.isArray(o)){var m=o.map(off).filter(Boolean);return m.length?Math.min.apply(null,m):0}if(o.priceCurrency&&o.priceCurrency!=='AUD')return 0;return n(o.lowPrice||o.price||0)||off(o.priceSpecification)||off(o.offers)};
+  var walk=function(o){if(!o||typeof o!=='object')return 0;if(Array.isArray(o)){for(var i=0;i<o.length;i++){var r=walk(o[i]);if(r)return r}return 0}if([].concat(o['@type']||[]).indexOf('Product')>-1){var q=off(o.offers);if(q)return q}return o['@graph']?walk(o['@graph']):0};
+  var p=0,s=String(window.getSelection()).trim();
+  if(s)p=n((s.match(/\d[\d,]*\.?\d*/)||[''])[0]);
+  if(!p)document.querySelectorAll('script[type="application/ld+json"]').forEach(function(e){if(!p)try{p=walk(JSON.parse(e.textContent))}catch(x){}});
+  if(!p){var m=document.querySelector('meta[property="product:price:amount"],meta[property="og:price:amount"],meta[itemprop="price"]');if(m)p=n(m.content)}
+  var t=document.querySelector('meta[property="og:title"]');
+  var d={u:location.href,p:p||0,t:(t&&t.content)||document.title};
+  var url=SITE+'#capture='+encodeURIComponent(JSON.stringify(d));
+  if(!window.open(url,'_blank'))location.href=url;
+ };
+ return 'javascript:'+encodeURIComponent('('+fn+')('+JSON.stringify(location.origin+location.pathname)+')');
+}
+function checkCapture(){
+ if(!location.hash.startsWith('#capture='))return;
+ let d;try{d=JSON.parse(decodeURIComponent(location.hash.slice(9)))}catch(e){return}
+ history.replaceState(null,'',location.pathname+location.search);
+ if(!d||safeUrl(d.u)==='#')return toast('Capture failed: invalid link.');
+ const url=cleanUrl(d.u),h=new URL(url).hostname.replace(/^www\./,'');
+ capt={u:url};
+ $('cProd').innerHTML=state.products.filter(p=>!p.demo).map(p=>`<option value="${esc(p.id)}">${esc(p.title)}</option>`).join('')+'<option value="__new">New product</option>';
+ const match=state.products.find(p=>!p.demo&&[p.addedUrl,...Object.values(p.urls||{})].some(x=>x&&cleanUrl(x)===url));
+ if(match)$('cProd').value=match.id;
+ $('cStore').innerHTML=state.retailers.map(r=>`<option>${esc(r.name)}</option>`).join('');
+ const r=state.retailers.find(r=>h===r.domain||h.endsWith('.'+r.domain));if(r)$('cStore').value=r.name;
+ $('cTitle').value=String(d.t||'').slice(0,120);
+ $('cPrice').value=Number(d.p)>0?Number(d.p):'';
+ $('cUrl').textContent=url;
+ openModal('mCap');
+}
+function saveCapture(e){
+ e.preventDefault();
+ const price=parseFloat($('cPrice').value);if(!(price>0))return toast('Enter a valid price.');
+ const store=$('cStore').value,url=capt.u;let p;
+ if($('cProd').value==='__new'){
+  const title=$('cTitle').value.trim();if(!title)return toast('Enter a product name.');
+  p={id:uid(),title,addedUrl:url,sourceStore:store,target:null,urls:{},prices:{},history:[]};state.products.unshift(p);
+ }else p=get($('cProd').value);
+ if(!p)return toast('Choose a product.');
+ (p.urls=p.urls||{})[store]=url;p.prices[store]=price;
+ const lo=lowest(p),hh=p.history||[];
+ if(lo&&(!hh.length||hh[hh.length-1].price!==lo.price))p.history=hh.concat({t:new Date().toISOString(),price:lo.price}).slice(-365);
+ save();closeModal('mCap');render();openDetail(p.id);syncProducts();
+}
 function exportData(){
  const a=document.createElement('a');
  a.href=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));
@@ -395,11 +462,12 @@ function openModal(id){lastFocus=document.activeElement;const m=$(id);m.classLis
 function closeModal(id){$(id).classList.add('hidden');if(lastFocus&&lastFocus.focus)lastFocus.focus()}
 
 document.addEventListener('click',e=>{
+ if(e.target.closest('#bmLink')){e.preventDefault();return toast('Drag this to your bookmarks bar instead of clicking it here.')}
  if(e.target.matches('[role=dialog]'))return closeModal(e.target.id);
  const b=e.target.closest('[data-a]');if(!b)return;
  const {a,m,id,i}=b.dataset;
  const actions={add:prepAdd,open:()=>{if(m==='mSet')fillGh();openModal(m)},close:()=>closeModal(m),detail:()=>openDetail(id),del:()=>delProduct(id),
-  setprice:()=>setPrice(id,+i),settarget:()=>setTarget(id),delr:()=>delRetailer(+i),export:exportData,reset:resetAll,savegh:saveGh};
+  setprice:()=>setPrice(id,+i),settarget:()=>setTarget(id),delr:()=>delRetailer(+i),export:exportData,reset:resetAll,savegh:saveGh,copybm:()=>navigator.clipboard.writeText(bmHref()).then(()=>toast('Bookmarklet copied.'),()=>toast('Could not copy.'))};
  (actions[a]||(()=>{}))();
 });
 document.addEventListener('keydown',e=>{
@@ -408,12 +476,15 @@ document.addEventListener('keydown',e=>{
 });
 $('fAdd').addEventListener('submit',addProduct);
 $('fRet').addEventListener('submit',addRetailer);
+$('fCap').addEventListener('submit',saveCapture);
 $('fUrl').addEventListener('input',guessFromUrl);
 $('fImp').addEventListener('change',e=>importData(e.target.files[0]));
 $('q').addEventListener('input',render);
 
 state=load();
 render();
+$('bmLink').href=bmHref();
+checkCapture();
 pullRetailers();
 pullPrices();
 if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
