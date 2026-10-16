@@ -63,5 +63,10 @@
     "name": "BigW",
     "domain": "bigw.com.au",
     "searchUrl": "https://bigw.com.au/search?q="
+  },
+  {
+    "name": "Myer",
+    "domain": "myer.com.au",
+    "searchUrl": "https://myer.com.au/search?q="
   }
 ]
