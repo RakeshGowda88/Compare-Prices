@@ -73,5 +73,10 @@
     "name": "eBay",
     "domain": "ebay.com.au",
     "searchUrl": "https://ebay.com.au/search?q="
+  },
+  {
+    "name": "BCF",
+    "domain": "bcf.com.au",
+    "searchUrl": "https://bcf.com.au/search?q="
   }
 ]
