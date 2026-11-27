@@ -1,50 +1,50 @@
 {
-  "updated": "2026-11-26T02:41:57.320Z",
+  "updated": "2026-11-27T02:41:59.534Z",
   "results": {
     "fc7a4b09-3d7b-4e2d-8fdf-4b6fc5d29df0": {
       "Adidas Australia": {
-        "t": "2026-11-26T02:40:48.654Z",
+        "t": "2026-11-27T02:40:49.844Z",
         "status": "blocked or unavailable (HTTP 403)"
       },
       "Myer": {
-        "t": "2026-11-26T02:40:53.551Z",
+        "t": "2026-11-27T02:40:54.585Z",
         "status": "ok",
         "price": 40
       },
       "eBay": {
-        "t": "2026-11-26T02:40:55.647Z",
+        "t": "2026-11-27T02:40:56.700Z",
         "status": "blocked or unavailable (HTTP 403)"
       }
     },
     "fa211ee8-e86a-40c8-8eb7-ecae265ca20f": {
       "JB Hi-Fi": {
-        "t": "2026-11-26T02:40:57.878Z",
+        "t": "2026-11-27T02:40:58.912Z",
         "status": "ok",
         "price": 396
       },
       "Woolworths": {
-        "t": "2026-11-26T02:40:59.914Z",
+        "t": "2026-11-27T02:41:00.964Z",
         "status": "blocked or unavailable (HTTP 403)"
       },
       "BigW": {
-        "t": "2026-11-26T02:41:46.915Z",
+        "t": "2026-11-27T02:41:47.966Z",
         "status": "request failed (TimeoutError)"
       },
       "Officeworks": {
-        "t": "2026-11-26T02:41:49.200Z",
+        "t": "2026-11-27T02:41:51.466Z",
         "status": "ok",
         "price": 395
       },
       "Bunnings": {
-        "t": "2026-11-26T02:41:51.268Z",
+        "t": "2026-11-27T02:41:53.498Z",
         "status": "blocked or unavailable (HTTP 403)"
       },
       "Amazon AU": {
-        "t": "2026-11-26T02:41:53.269Z",
+        "t": "2026-11-27T02:41:55.499Z",
         "status": "manual only (Amazon terms)"
       },
       "Harvey Norman": {
-        "t": "2026-11-26T02:41:55.318Z",
+        "t": "2026-11-27T02:41:57.533Z",
         "status": "price not found in page"
       }
     }
